@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -22,6 +21,8 @@ const TypingGame = () => {
   const [wpm, setWpm] = useState(0);
   const [pressedKey, setPressedKey] = useState<string | null>(null);
   const [isGameStarted, setIsGameStarted] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [keyboardTheme, setKeyboardTheme] = useState<"default" | "purple" | "blue" | "green">("default");
 
   const currentWord = words[currentWordIndex];
   const nextLetter = currentWord?.[currentLetterIndex];
@@ -32,9 +33,22 @@ const TypingGame = () => {
     setTimeLeft(TIME_LIMIT);
   };
 
+  const handlePauseResume = () => {
+    setIsPaused(prev => !prev);
+    if (!isPaused) {
+      // Pausing the game
+      const currentTime = Date.now();
+      const elapsedTime = currentTime - (startTime || currentTime);
+      setStartTime(prev => (prev || 0) + elapsedTime);
+    } else {
+      // Resuming the game
+      setStartTime(Date.now());
+    }
+  };
+
   const handleKeyPress = useCallback(
     (event: KeyboardEvent) => {
-      if (isGameOver || !isGameStarted) return;
+      if (isGameOver || !isGameStarted || isPaused) return;
 
       const key = event.key.toLowerCase();
       setPressedKey(key);
@@ -66,7 +80,7 @@ const TypingGame = () => {
         setErrors((prev) => prev + 1);
       }
     },
-    [currentLetterIndex, currentWord, currentWordIndex, isGameOver, nextLetter, startTime, isGameStarted]
+    [currentLetterIndex, currentWord, currentWordIndex, isGameOver, nextLetter, startTime, isGameStarted, isPaused]
   );
 
   useEffect(() => {
@@ -82,7 +96,7 @@ const TypingGame = () => {
   }, [handleKeyPress]);
 
   useEffect(() => {
-    if (isGameStarted && !isGameOver) {
+    if (isGameStarted && !isGameOver && !isPaused) {
       const timer = setInterval(() => {
         setTimeLeft((prev) => {
           if (prev <= 1) {
@@ -95,7 +109,7 @@ const TypingGame = () => {
 
       return () => clearInterval(timer);
     }
-  }, [isGameStarted, isGameOver]);
+  }, [isGameStarted, isGameOver, isPaused]);
 
   const handleRestart = () => {
     setCurrentWordIndex(0);
@@ -110,15 +124,15 @@ const TypingGame = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-8">
+    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 p-8">
       <div className="max-w-4xl mx-auto space-y-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center"
         >
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">TypeUber</h1>
-          <p className="text-gray-600">Enhance your typing speed with practice</p>
+          <h1 className="text-4xl font-bold text-white mb-2">TypeUber</h1>
+          <p className="text-gray-400">Enhance your typing speed with practice</p>
         </motion.div>
 
         <AnimatePresence mode="wait">
@@ -138,16 +152,16 @@ const TypingGame = () => {
               />
 
               <motion.div
-                className="bg-white rounded-xl p-8 shadow-sm mb-8 text-center"
+                className="bg-gray-800 rounded-xl p-8 shadow-lg mb-8 text-center border border-gray-700"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                <div className="text-2xl font-mono space-x-1">
+                <div className="text-2xl font-mono space-x-1 text-gray-200">
                   {words.slice(currentWordIndex, currentWordIndex + 3).map((word, wordIdx) => (
                     <span
                       key={wordIdx}
                       className={`inline-block ${
-                        wordIdx === 0 ? "text-gray-900" : "text-gray-400"
+                        wordIdx === 0 ? "text-gray-200" : "text-gray-500"
                       }`}
                     >
                       {word.split("").map((letter, letterIdx) => (
@@ -155,11 +169,11 @@ const TypingGame = () => {
                           key={letterIdx}
                           className={`${
                             wordIdx === 0 && letterIdx === currentLetterIndex
-                              ? "bg-gray-900 text-white px-1 rounded"
+                              ? "bg-purple-600 text-white px-1 rounded"
                               : ""
                           } ${
                             wordIdx === 0 && letterIdx < currentLetterIndex
-                              ? "text-gray-400"
+                              ? "text-gray-500"
                               : ""
                           }`}
                         >
@@ -171,22 +185,69 @@ const TypingGame = () => {
                 </div>
               </motion.div>
 
-              <Keyboard highlightedKey={isGameStarted ? nextLetter : null} pressedKey={pressedKey} />
+              <Keyboard 
+                highlightedKey={isGameStarted && !isPaused ? nextLetter : null} 
+                pressedKey={pressedKey}
+                theme={keyboardTheme}
+              />
               
-              {!isGameStarted && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-center"
-                >
-                  <Button
-                    onClick={startGame}
-                    className="bg-gray-900 text-white hover:bg-gray-800 transition-colors"
+              <div className="flex justify-center gap-4">
+                {!isGameStarted ? (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
                   >
-                    Start Test
-                  </Button>
-                </motion.div>
-              )}
+                    <Button
+                      onClick={startGame}
+                      className="bg-purple-600 text-white hover:bg-purple-700 transition-colors"
+                    >
+                      Start Test
+                    </Button>
+                  </motion.div>
+                ) : (
+                  <>
+                    <Button
+                      onClick={handleRestart}
+                      className="bg-gray-700 text-white hover:bg-gray-600 transition-colors"
+                    >
+                      Reset Test
+                    </Button>
+                    <Button
+                      onClick={handlePauseResume}
+                      className="bg-purple-600 text-white hover:bg-purple-700 transition-colors"
+                    >
+                      {isPaused ? "Resume Test" : "Pause Test"}
+                    </Button>
+                  </>
+                )}
+              </div>
+
+              <div className="flex justify-center gap-2">
+                <Button
+                  onClick={() => setKeyboardTheme("default")}
+                  className={`${keyboardTheme === "default" ? "ring-2 ring-purple-500" : ""} bg-gray-800`}
+                >
+                  Default
+                </Button>
+                <Button
+                  onClick={() => setKeyboardTheme("purple")}
+                  className={`${keyboardTheme === "purple" ? "ring-2 ring-purple-500" : ""} bg-purple-900`}
+                >
+                  Purple
+                </Button>
+                <Button
+                  onClick={() => setKeyboardTheme("blue")}
+                  className={`${keyboardTheme === "blue" ? "ring-2 ring-blue-500" : ""} bg-blue-900`}
+                >
+                  Blue
+                </Button>
+                <Button
+                  onClick={() => setKeyboardTheme("green")}
+                  className={`${keyboardTheme === "green" ? "ring-2 ring-green-500" : ""} bg-emerald-900`}
+                >
+                  Green
+                </Button>
+              </div>
             </motion.div>
           ) : (
             <motion.div
