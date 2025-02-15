@@ -1,6 +1,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Button } from "@/components/ui/button";
 import StatsPanel from "./StatsPanel";
 import Keyboard from "./Keyboard";
 import ResultsSummary from "./ResultsSummary";
@@ -20,24 +21,23 @@ const TypingGame = () => {
   const [startTime, setStartTime] = useState<number | null>(null);
   const [wpm, setWpm] = useState(0);
   const [pressedKey, setPressedKey] = useState<string | null>(null);
-
-  const gameStarted = useRef(false);
+  const [isGameStarted, setIsGameStarted] = useState(false);
 
   const currentWord = words[currentWordIndex];
   const nextLetter = currentWord?.[currentLetterIndex];
 
+  const startGame = () => {
+    setIsGameStarted(true);
+    setStartTime(Date.now());
+    setTimeLeft(TIME_LIMIT);
+  };
+
   const handleKeyPress = useCallback(
     (event: KeyboardEvent) => {
-      if (isGameOver) return;
+      if (isGameOver || !isGameStarted) return;
 
       const key = event.key.toLowerCase();
       setPressedKey(key);
-
-      if (!gameStarted.current) {
-        gameStarted.current = true;
-        setStartTime(Date.now());
-      }
-
       setTotalKeyPresses((prev) => prev + 1);
 
       if (key === nextLetter) {
@@ -51,11 +51,22 @@ const TypingGame = () => {
         } else {
           setCurrentLetterIndex((prev) => prev + 1);
         }
+
+        // Calculate WPM after each successful keypress
+        if (startTime) {
+          const currentTime = Date.now();
+          const newWpm = calculateWPM(
+            currentWordIndex + (currentLetterIndex > 0 ? 1 : 0),
+            startTime,
+            currentTime
+          );
+          setWpm(newWpm);
+        }
       } else {
         setErrors((prev) => prev + 1);
       }
     },
-    [currentLetterIndex, currentWord, currentWordIndex, isGameOver, nextLetter]
+    [currentLetterIndex, currentWord, currentWordIndex, isGameOver, nextLetter, startTime, isGameStarted]
   );
 
   useEffect(() => {
@@ -71,7 +82,7 @@ const TypingGame = () => {
   }, [handleKeyPress]);
 
   useEffect(() => {
-    if (gameStarted.current && !isGameOver) {
+    if (isGameStarted && !isGameOver) {
       const timer = setInterval(() => {
         setTimeLeft((prev) => {
           if (prev <= 1) {
@@ -84,19 +95,7 @@ const TypingGame = () => {
 
       return () => clearInterval(timer);
     }
-  }, [isGameOver]);
-
-  useEffect(() => {
-    if (startTime && (isGameOver || timeLeft === 0)) {
-      const endTime = Date.now();
-      const calculatedWpm = calculateWPM(
-        currentWordIndex + (currentLetterIndex > 0 ? 1 : 0),
-        startTime,
-        endTime
-      );
-      setWpm(calculatedWpm);
-    }
-  }, [currentLetterIndex, currentWordIndex, isGameOver, startTime, timeLeft]);
+  }, [isGameStarted, isGameOver]);
 
   const handleRestart = () => {
     setCurrentWordIndex(0);
@@ -107,7 +106,7 @@ const TypingGame = () => {
     setIsGameOver(false);
     setStartTime(null);
     setWpm(0);
-    gameStarted.current = false;
+    setIsGameStarted(false);
   };
 
   return (
@@ -172,7 +171,22 @@ const TypingGame = () => {
                 </div>
               </motion.div>
 
-              <Keyboard highlightedKey={nextLetter} pressedKey={pressedKey} />
+              <Keyboard highlightedKey={isGameStarted ? nextLetter : null} pressedKey={pressedKey} />
+              
+              {!isGameStarted && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-center"
+                >
+                  <Button
+                    onClick={startGame}
+                    className="bg-gray-900 text-white hover:bg-gray-800 transition-colors"
+                  >
+                    Start Test
+                  </Button>
+                </motion.div>
+              )}
             </motion.div>
           ) : (
             <motion.div
