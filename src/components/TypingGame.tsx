@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -5,6 +6,7 @@ import StatsPanel from "./StatsPanel";
 import Keyboard from "./Keyboard";
 import ResultsSummary from "./ResultsSummary";
 import { generateWords, calculateWPM, calculateErrorRate } from "@/utils/gameUtils";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const WORD_COUNT = 50;
 const TIME_LIMIT = 120; // 2 minutes in seconds
@@ -23,6 +25,8 @@ const TypingGame = () => {
   const [isGameStarted, setIsGameStarted] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [keyboardTheme, setKeyboardTheme] = useState<"default" | "purple" | "blue" | "green">("default");
+  const isMobile = useIsMobile();
+  const mobileInputRef = useRef<HTMLInputElement>(null);
 
   const currentWord = words[currentWordIndex];
   const nextLetter = currentWord?.[currentLetterIndex];
@@ -31,6 +35,13 @@ const TypingGame = () => {
     setIsGameStarted(true);
     setStartTime(Date.now());
     setTimeLeft(TIME_LIMIT);
+    
+    // Focus the input field for mobile devices
+    if (isMobile) {
+      setTimeout(() => {
+        mobileInputRef.current?.focus();
+      }, 100);
+    }
   };
 
   const handlePauseResume = () => {
@@ -43,6 +54,13 @@ const TypingGame = () => {
     } else {
       // Resuming the game
       setStartTime(Date.now());
+      
+      // Refocus on resume for mobile
+      if (isMobile) {
+        setTimeout(() => {
+          mobileInputRef.current?.focus();
+        }, 100);
+      }
     }
   };
 
@@ -51,37 +69,53 @@ const TypingGame = () => {
       if (isGameOver || !isGameStarted || isPaused) return;
 
       const key = event.key.toLowerCase();
-      setPressedKey(key);
-      setTotalKeyPresses((prev) => prev + 1);
-
-      if (key === nextLetter) {
-        if (currentLetterIndex === currentWord.length - 1) {
-          if (currentWordIndex === WORD_COUNT - 1) {
-            setIsGameOver(true);
-            return;
-          }
-          setCurrentWordIndex((prev) => prev + 1);
-          setCurrentLetterIndex(0);
-        } else {
-          setCurrentLetterIndex((prev) => prev + 1);
-        }
-
-        // Calculate WPM after each successful keypress
-        if (startTime) {
-          const currentTime = Date.now();
-          const newWpm = calculateWPM(
-            currentWordIndex + (currentLetterIndex > 0 ? 1 : 0),
-            startTime,
-            currentTime
-          );
-          setWpm(newWpm);
-        }
-      } else {
-        setErrors((prev) => prev + 1);
-      }
+      handleKeyDown(key);
     },
     [currentLetterIndex, currentWord, currentWordIndex, isGameOver, nextLetter, startTime, isGameStarted, isPaused]
   );
+
+  // Handle mobile input
+  const handleMobileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isGameOver || !isGameStarted || isPaused) return;
+    
+    const lastChar = e.target.value.slice(-1).toLowerCase();
+    if (lastChar) {
+      handleKeyDown(lastChar);
+      e.target.value = ''; // Clear after processing
+    }
+  };
+
+  // Common key handling logic
+  const handleKeyDown = (key: string) => {
+    setPressedKey(key);
+    setTotalKeyPresses((prev) => prev + 1);
+
+    if (key === nextLetter) {
+      if (currentLetterIndex === currentWord.length - 1) {
+        if (currentWordIndex === WORD_COUNT - 1) {
+          setIsGameOver(true);
+          return;
+        }
+        setCurrentWordIndex((prev) => prev + 1);
+        setCurrentLetterIndex(0);
+      } else {
+        setCurrentLetterIndex((prev) => prev + 1);
+      }
+
+      // Calculate WPM after each successful keypress
+      if (startTime) {
+        const currentTime = Date.now();
+        const newWpm = calculateWPM(
+          currentWordIndex + (currentLetterIndex > 0 ? 1 : 0),
+          startTime,
+          currentTime
+        );
+        setWpm(newWpm);
+      }
+    } else {
+      setErrors((prev) => prev + 1);
+    }
+  };
 
   useEffect(() => {
     if (pressedKey) {
@@ -121,6 +155,7 @@ const TypingGame = () => {
     setStartTime(null);
     setWpm(0);
     setIsGameStarted(false);
+    setIsPaused(false);
   };
 
   return (
@@ -134,6 +169,20 @@ const TypingGame = () => {
           <h1 className="text-4xl font-bold text-white mb-2">TypeUber</h1>
           <p className="text-gray-400">Enhance your typing speed with practice</p>
         </motion.div>
+
+        {isMobile && (
+          <input
+            ref={mobileInputRef}
+            type="text"
+            className="opacity-0 fixed h-px w-px -z-10 p-0 m-0 border-0"
+            autoCapitalize="none"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck="false"
+            onChange={handleMobileInput}
+            aria-hidden="true"
+          />
+        )}
 
         <AnimatePresence mode="wait">
           {!isGameOver ? (
@@ -189,9 +238,10 @@ const TypingGame = () => {
                 highlightedKey={isGameStarted && !isPaused ? nextLetter : null} 
                 pressedKey={pressedKey}
                 theme={keyboardTheme}
+                autoFocus={isGameStarted && !isPaused}
               />
               
-              <div className="flex justify-center gap-4">
+              <div className="flex justify-center gap-4 flex-wrap">
                 {!isGameStarted ? (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
@@ -222,7 +272,7 @@ const TypingGame = () => {
                 )}
               </div>
 
-              <div className="flex justify-center gap-2">
+              <div className="flex justify-center gap-2 flex-wrap">
                 <Button
                   onClick={() => setKeyboardTheme("default")}
                   className={`${keyboardTheme === "default" ? "ring-2 ring-purple-500" : ""} bg-gray-800`}

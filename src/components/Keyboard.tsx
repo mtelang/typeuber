@@ -1,13 +1,22 @@
 
 import { motion } from "framer-motion";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface KeyboardProps {
   highlightedKey: string | null;
   pressedKey: string | null;
   theme?: "default" | "purple" | "blue" | "green";
+  autoFocus?: boolean;
 }
 
-const Keyboard = ({ highlightedKey, pressedKey, theme = "default" }: KeyboardProps) => {
+const Keyboard = ({ 
+  highlightedKey, 
+  pressedKey, 
+  theme = "default", 
+  autoFocus = false
+}: KeyboardProps) => {
+  const isMobile = useIsMobile();
+
   const themeColors = {
     default: {
       key: "bg-gray-800 text-gray-200 border-gray-700",
@@ -73,6 +82,14 @@ const Keyboard = ({ highlightedKey, pressedKey, theme = "default" }: KeyboardPro
 
   return (
     <div className="w-full max-w-4xl mx-auto bg-gray-900/50 backdrop-blur-sm rounded-xl p-6 shadow-lg">
+      {isMobile && autoFocus && (
+        <input 
+          type="text"
+          autoFocus
+          className="opacity-0 absolute h-0 w-0 -z-10"
+          aria-hidden="true"
+        />
+      )}
       <div className="space-y-2">
         <div className="flex justify-center space-x-2">
           {renderSpecialKey("esc", "w-12")}
